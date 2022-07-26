@@ -128,6 +128,13 @@ const STestButton = styled(Button as any)`
 `;
 
 interface IAppState {
+  ceremonyType: string;
+  ceremonyStarted: boolean;
+  ceremonyEnded: boolean;
+  numCompleted: number;
+  numParticipants: number;
+  numThreshold: number;
+  responseA: string;
   connector: WalletConnect | null;
   fetching: boolean;
   connected: boolean;
@@ -142,6 +149,13 @@ interface IAppState {
 }
 
 const INITIAL_STATE: IAppState = {
+  ceremonyType: '?',
+  ceremonyStarted: false,
+  ceremonyEnded: false,
+  numCompleted: 0,
+  numParticipants: 25,
+  numThreshold: 25,
+  responseA: '',
   connector: null,
   fetching: false,
   connected: false,
@@ -169,14 +183,21 @@ class App extends React.Component<any, any> {
 
     await this.setState({ connector });
 
-    // check if already connected
-    if (!connector.connected) {
-      // create new session
-      await connector.createSession();
+    if (connector.connected) {
+        await connector.killSession();
     }
-
+    // create new session
+    await connector.createSession();
     // subscribe to events
     await this.subscribeToEvents();
+    this.setState({ numCompleted: this.state.numCompleted + 1 })
+    if (this.state.numCompleted >= this.state.numParticipants) {
+        this.setState({ ceremonyEnded: true })
+    }
+
+
+    // todo
+    this.setState({ responseA: '' })
   };
   public subscribeToEvents = () => {
     const { connector } = this.state;
@@ -252,7 +273,6 @@ class App extends React.Component<any, any> {
       accounts,
       address,
     });
-    this.getAccountAssets();
   };
 
   public onDisconnect = async () => {
@@ -626,8 +646,27 @@ class App extends React.Component<any, any> {
     }
   };
 
+  public enter = () => {
+    this.setState({ ceremonyType: 'enter' })
+  }
+
+  public exit = () => {
+    this.setState({ ceremonyType: 'exit' })
+  }
+
+  public startEnterCeremony = () => {
+  console.log('asd')
+  console.log(this.state.numParticipants)
+  console.log(this.state.numThreshold)
+    this.setState({ ceremonyStarted: true })
+  }
+
   public render = () => {
     const {
+      ceremonyType,
+      ceremonyStarted,
+      ceremonyEnded,
+      numCompleted,
       assets,
       address,
       connected,
@@ -647,19 +686,58 @@ class App extends React.Component<any, any> {
             killSession={this.killSession}
           />
           <SContent>
-            {!address && !assets.length ? (
+            {!ceremonyEnded && ceremonyType === '?' ? (
               <SLanding center>
                 <h3>
-                  {`Try out WalletConnect`}
+                  {`Welcome to Darqnet`}
                   <br />
-                  <span>{`v${process.env.REACT_APP_VERSION}`}</span>
                 </h3>
                 <SButtonContainer>
-                  <SConnectButton left onClick={this.connect} fetching={fetching}>
-                    {"Connect to WalletConnect"}
+                  <SConnectButton left onClick={this.enter} fetching={fetching}>
+                    {"Entrence"}
+                  </SConnectButton>
+                  <SConnectButton left onClick={this.exit} fetching={fetching}>
+                    {"Exit"}
                   </SConnectButton>
                 </SButtonContainer>
               </SLanding>
+            ): ceremonyType === 'enter' ? (
+                ceremonyStarted ? (
+                  <SContainer>
+                      <h3>
+                        {`Welcome to Darqnet`}
+                      </h3>
+                      <h5>
+                        {`Participant ${numCompleted + 1}`}
+                        <br />
+                        <br />
+                        {`Why are you here?`}
+                      </h5>
+                      <textarea onChange={event => {this.setState({responseA: event.target.value})}} />
+                      <SConnectButton left onClick={this.connect} fetching={fetching}>
+                        {"Save"}
+                      </SConnectButton>
+                  </SContainer>
+                ) : (
+                  <SContainer>
+                      <h4>{'Configure ceremony'}</h4>
+                      <h5>
+                        {`How many has gathered?`}
+                        <br />
+                        {this.state.numParticipants}
+                      </h5>
+                      <input type='range' min='3' max='25' onChange={event => {this.setState({numParticipants: event.target.value})}} />
+                      <h5>
+                        {`How large shall your threshold be?`}
+                        <br />
+                        {this.state.numThreshold}
+                      </h5>
+                      <input type='range' min='2' max='25' onChange={event => {this.setState({numThreshold: event.target.value})}} />
+                      <SConnectButton left onClick={this.startEnterCeremony} fetching={fetching}>
+                        {"Start ceremony"}
+                      </SConnectButton>
+                    </SContainer>
+                )
             ) : (
               <SBalances>
                 <Banner />
